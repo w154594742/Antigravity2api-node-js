@@ -122,50 +122,6 @@
       <div class="status-row">
         <span id="manageStatus" class="badge" style="display:none;"></span>
       </div>
-      <div class="test-section">
-        <div class="test-controls">
-          <div class="test-input-group">
-            <label class="filter-field">
-              <span>测试模型</span>
-              <input
-                id="testModelSelect"
-                type="text"
-                class="input"
-                placeholder="请输入模型 ID"
-                value="gemini-2.5-flash-lite"
-              />
-            </label>
-            <label class="filter-field">
-              <span>测试提示</span>
-              <input id="testPromptInput" type="text" class="input" placeholder="请输入测试提示词" />
-            </label>
-          </div>
-          <button id="testAllBtn" class="refresh-btn">🚀 测试全部凭证</button>
-        </div>
-        <div class="test-results-section">
-          <div id="testResultsStatus" class="badge" style="display:none;"></div>
-          <div id="testResultsSummary" class="test-summary" style="display:none;">
-            <div class="summary-stats">
-              <div class="stat-item">
-                <span class="stat-label">总测试</span>
-                <span class="stat-value" id="totalTests">0</span>
-              </div>
-              <div class="stat-item success">
-                <span class="stat-label">成功</span>
-                <span class="stat-value" id="successTests">0</span>
-              </div>
-              <div class="stat-item error">
-                <span class="stat-label">失败</span>
-                <span class="stat-value" id="failedTests">0</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-label">测试时间</span>
-                <span class="stat-value" id="testTime">--</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
       <div class="pagination-bar">
         <div id="paginationInfo" class="pagination-info">加载中...</div>
         <div class="pagination-controls">

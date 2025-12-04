@@ -32,13 +32,9 @@ const logNextPageBtn = document.getElementById('logNextPageBtn');
 const statusFilterSelect = document.getElementById('statusFilter');
 const errorFilterCheckbox = document.getElementById('errorFilter');
 const themeToggleBtn = document.getElementById('themeToggleBtn');
-const testModelSelect = document.getElementById('testModelSelect');
-const testPromptInput = document.getElementById('testPromptInput');
-const testAllBtn = document.getElementById('testAllBtn');
 
 const HOUR_WINDOW_MINUTES = 60;
 const HOURLY_LIMIT = 20;
-const DEFAULT_TEST_MODEL = 'gemini-2.5-flash-lite';
 
 const PAGE_SIZE = 5;
 let accountsData = [];
@@ -51,17 +47,11 @@ let statusFilter = 'all';
 let errorOnly = false;
 const logDetailCache = new Map();
 
-let panelConfig = { apiKey: null };
-
 let replaceIndex = null;
 
 if (window.AgTheme) {
   window.AgTheme.initTheme();
   window.AgTheme.bindThemeToggle(themeToggleBtn);
-}
-
-if (testModelSelect && !testModelSelect.value) {
-  testModelSelect.value = DEFAULT_TEST_MODEL;
 }
 
 function setStatus(text, type = 'info', target = statusEl) {
@@ -93,21 +83,6 @@ async function fetchJson(url, options = {}) {
   return data;
 }
 
-async function loadPanelConfig() {
-  try {
-    panelConfig = await fetchJson('/admin/panel-config');
-  } catch (e) {
-    console.warn('加载面板配置失败：', e.message);
-    panelConfig = { apiKey: null };
-  }
-}
-
-async function ensurePanelConfig() {
-  if (panelConfig?.apiKey) return panelConfig;
-  await loadPanelConfig();
-  return panelConfig;
-}
-
 function escapeHtml(str) {
   if (str === null || str === undefined) return '';
   return String(str)
@@ -126,19 +101,6 @@ function formatJson(value) {
   }
 }
 
-function getTestPrompt() {
-  const value = testPromptInput?.value?.trim();
-  if (value) return value;
-  const fallback = '请用一句中文回复，确认该凭证可正常调用。';
-  if (testPromptInput) testPromptInput.value = fallback;
-  return fallback;
-}
-
-function getTestModel() {
-  const model = testModelSelect?.value?.trim();
-  return model || DEFAULT_TEST_MODEL;
-}
-
 function getAccountDisplayName(acc) {
   if (!acc) return '未知账号';
   if (acc.email) return acc.email;
@@ -146,35 +108,6 @@ function getAccountDisplayName(acc) {
   if (acc.projectId) return acc.projectId;
   if (typeof acc.index === 'number') return `账号 #${acc.index + 1}`;
   return '未知账号';
-}
-
-function updateTestResultEl(target, text, state = 'info') {
-  if (!target) return;
-  target.textContent = text;
-  target.dataset.state = state;
-}
-
-async function persistTestRecord(index, record = {}) {
-  try {
-    await fetchJson(`/auth/accounts/${index}/test-record`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(record)
-    });
-  } catch (e) {
-    console.warn('保存测试记录失败：', e.message);
-  }
-}
-
-function updateLocalTestRecord(index, patch = {}) {
-  const target = accountsData.find(item => item.index === index);
-  if (!target) return;
-  Object.assign(target, patch);
-
-  const metaEl = document.getElementById(`testMeta-${index}`);
-  if (metaEl) {
-    metaEl.innerHTML = renderTestMeta(target);
-  }
 }
 
 function renderUsageCard(account) {
@@ -189,177 +122,6 @@ function renderUsageCard(account) {
       <div class="usage-row"><span>使用过的模型</span><strong>${models}</strong></div>
     </div>
   `;
-}
-
-function renderTestMeta(account) {
-  const testedAt = account.lastTestedAt ? new Date(account.lastTestedAt).toLocaleString() : '未测试';
-  const status =
-    account.lastTestSuccess === true
-      ? { text: '上次测试成功', className: 'chip-success' }
-      : account.lastTestSuccess === false
-        ? { text: '上次测试失败', className: 'chip-warning' }
-        : { text: '未进行测试', className: '' };
-
-  const message = account.lastTestMessage || '暂无测试记录';
-
-  return `
-    <div class="test-meta-row">
-      <span class="chip ${status.className}">${status.text}</span>
-      <span class="test-meta-time">${escapeHtml(testedAt)}</span>
-    </div>
-    <div class="test-meta-message">${escapeHtml(message)}</div>
-  `;
-}
-
-function extractDeltaContent(delta) {
-  if (!delta) return '';
-  if (typeof delta.content === 'string') return delta.content;
-  if (Array.isArray(delta.content)) {
-    return delta.content
-      .map(item => (typeof item === 'string' ? item : item?.text || item?.content || ''))
-      .join('');
-  }
-  if (delta.content?.text) return delta.content.text;
-  return '';
-}
-
-async function runCredentialTest(projectId, targetEl, options = {}) {
-  if (!projectId) throw new Error('凭证缺少 projectId，无法测试');
-  if (!panelConfig.apiKey) {
-    throw new Error('缺少 API_KEY，请在环境变量中设置后刷新面板');
-  }
-  const { model = getTestModel(), prompt = getTestPrompt() } = options;
-
-  updateTestResultEl(targetEl, `模型 ${model} 测试中...`, 'info');
-
-  const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${panelConfig.apiKey}` };
-
-  const res = await fetch(`/${encodeURIComponent(projectId)}/v1/chat/completions`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-      model,
-      stream: true,
-      messages: [
-        { role: 'system', content: '你是一个检查助手，请用简短中文回复确认服务可用。' },
-        { role: 'user', content: prompt }
-      ]
-    })
-  });
-
-  if (!res.ok) {
-    throw new Error(`HTTP ${res.status}`);
-  }
-  if (!res.body) {
-    throw new Error('浏览器不支持流式读取或未返回响应体');
-  }
-
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  let collected = '';
-
-  const processBuffer = chunk => {
-    const groups = chunk.split('\n\n');
-    const last = groups.pop();
-    groups.forEach(group => {
-      const lines = group
-        .split('\n')
-        .map(line => line.trim())
-        .filter(Boolean);
-      lines.forEach(line => {
-        if (!line.startsWith('data:')) return;
-        const payload = line.slice(5).trim();
-        if (!payload || payload === '[DONE]') return;
-        try {
-          const parsed = JSON.parse(payload);
-          const delta = parsed?.choices?.[0]?.delta;
-          const text = extractDeltaContent(delta);
-          if (text) {
-            collected += text;
-            updateTestResultEl(targetEl, collected, 'info');
-          }
-        } catch (e) {
-          // ignore invalid chunk
-        }
-      });
-    });
-    return last || '';
-  };
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (value) {
-      buffer += decoder.decode(value, { stream: true });
-      buffer = processBuffer(buffer);
-    }
-    if (done) break;
-  }
-
-  if (buffer) {
-    processBuffer(buffer);
-  }
-
-  const finalText = collected.trim();
-  if (finalText) {
-    updateTestResultEl(targetEl, finalText, 'success');
-  } else {
-    updateTestResultEl(targetEl, '未收到模型内容，但请求已完成。', 'warning');
-  }
-
-  return finalText;
-}
-
-async function testAllCredentials() {
-  if (!accountsData.length) {
-    setStatus('暂无凭证可测试。', 'info', manageStatusEl);
-    return;
-  }
-
-  const model = getTestModel();
-  const prompt = getTestPrompt();
-
-  await ensurePanelConfig();
-
-  if (testAllBtn) testAllBtn.disabled = true;
-  setStatus(`使用 ${model} 逐个测试凭证...`, 'info', manageStatusEl);
-
-  for (const acc of accountsData) {
-    const target = document.getElementById(`testResult-${acc.index}`);
-    if (!acc.projectId) {
-      updateTestResultEl(target, '缺少邮箱或项目 ID，已跳过。', 'error');
-      continue;
-    }
-    if (acc.enable === false) {
-      updateTestResultEl(target, '凭证已停用，已跳过测试。', 'warning');
-      continue;
-    }
-
-    try {
-      const testedAt = new Date().toISOString();
-      const text = await runCredentialTest(acc.projectId, target, { model, prompt });
-      const message = text || '测试请求已完成';
-      await persistTestRecord(acc.index, { success: true, message, testedAt });
-      updateLocalTestRecord(acc.index, {
-        lastTestedAt: testedAt,
-        lastTestSuccess: true,
-        lastTestMessage: message
-      });
-    } catch (e) {
-      const testedAt = new Date().toISOString();
-      const errorMsg = `测试失败：${e.message}`;
-      updateTestResultEl(target, errorMsg, 'error');
-      await persistTestRecord(acc.index, { success: false, message: errorMsg, testedAt });
-      updateLocalTestRecord(acc.index, {
-        lastTestedAt: testedAt,
-        lastTestSuccess: false,
-        lastTestMessage: errorMsg
-      });
-    }
-  }
-
-  setStatus('全部凭证测试完成。', 'success', manageStatusEl);
-  if (testAllBtn) testAllBtn.disabled = false;
 }
 
 function updateFilteredAccounts() {
@@ -463,53 +225,6 @@ function bindAccountActions() {
       loginBtn?.click();
     });
   });
-
-  document.querySelectorAll('[data-action="test"]')?.forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const idx = Number(btn.dataset.index);
-      const account = accountsData.find(item => item.index === idx);
-      const target = document.getElementById(`testResult-${idx}`);
-      if (!account) return;
-      if (!account.projectId) {
-        updateTestResultEl(target, '缺少邮箱或项目 ID，无法测试。', 'error');
-        return;
-      }
-
-      await ensurePanelConfig();
-
-      btn.disabled = true;
-      try {
-        const testedAt = new Date().toISOString();
-        const text = await runCredentialTest(account.projectId, target, {
-          model: getTestModel(),
-          prompt: getTestPrompt()
-        });
-        const message = text || '测试请求已完成';
-        await persistTestRecord(idx, { success: true, message, testedAt });
-        updateLocalTestRecord(idx, {
-          lastTestedAt: testedAt,
-          lastTestSuccess: true,
-          lastTestMessage: message
-        });
-        const accountLabel = getAccountDisplayName(account);
-        setStatus(`凭证 ${accountLabel} 测试完成。`, 'success', manageStatusEl);
-      } catch (e) {
-        const testedAt = new Date().toISOString();
-        const errorMsg = `测试失败：${e.message}`;
-        updateTestResultEl(target, errorMsg, 'error');
-        await persistTestRecord(idx, { success: false, message: errorMsg, testedAt });
-        updateLocalTestRecord(idx, {
-          lastTestedAt: testedAt,
-          lastTestSuccess: false,
-          lastTestMessage: errorMsg
-        });
-        const accountLabel = getAccountDisplayName(account);
-        setStatus(`凭证 ${accountLabel} 测试失败：${e.message}`, 'error', manageStatusEl);
-      } finally {
-        btn.disabled = false;
-      }
-    });
-  });
 }
 
 async function refreshAccounts() {
@@ -560,12 +275,10 @@ function renderAccountsList() {
           <div class="account-content">
             <div class="account-data">
               ${renderUsageCard(acc)}
-              <div class="account-test-meta" id="testMeta-${acc.index}">${renderTestMeta(acc)}</div>
             </div>
 
             <div class="account-actions">
               <div class="action-row primary">
-                <button class="mini-btn" data-action="test" data-index="${acc.index}">🧪 测试</button>
                 <button class="mini-btn" data-action="refresh" data-index="${acc.index}">🔁 刷新</button>
               </div>
               <div class="action-row secondary">
@@ -577,8 +290,6 @@ function renderAccountsList() {
               </div>
             </div>
           </div>
-
-          <div class="account-test-result" id="testResult-${acc.index}" aria-live="polite">点击"测试"查看结果</div>
         </div>
       `;
     })
@@ -1142,19 +853,6 @@ if (errorFilterCheckbox) {
   });
 }
 
-if (testAllBtn) {
-  testAllBtn.addEventListener('click', async () => {
-    try {
-      testAllBtn.disabled = true;
-      testAllBtn.textContent = '测试中...';
-      await testAllCredentials();
-    } finally {
-      testAllBtn.textContent = '🚀 测试全部凭证';
-      testAllBtn.disabled = false;
-    }
-  });
-}
-
 if (themeToggleBtn) {
   themeToggleBtn.addEventListener('click', () => {
     const current = document.documentElement.getAttribute('data-theme') || 'light';
@@ -1241,7 +939,6 @@ if (settingsRefreshBtn) {
   });
 }
 
-loadPanelConfig();
 refreshAccounts();
 loadLogs();
 loadHourlyUsage();

@@ -488,9 +488,6 @@ function readAccountsSafe() {
       enable: acc.enable !== false,
       hasRefreshToken: !!acc.refresh_token,
       createdAt: acc.timestamp || null,
-      lastTestedAt: acc.last_tested_at || null,
-      lastTestSuccess: acc.last_test_success ?? null,
-      lastTestMessage: acc.last_test_message || null,
       expiresIn: acc.expires_in || null,
       usage: usageMap[acc.projectId] || {
         total: 0,
@@ -527,7 +524,7 @@ function normalizeTomlAccount(raw, { filterDisabled = false } = {}) {
   const refreshToken = raw.refresh_token ?? raw.refreshToken;
 
   const isDisabled = raw.disabled === true || raw.enable === false;
-  if (filterDisabled && isDisabled === false) return null;
+  if (filterDisabled && isDisabled) return null;
 
   if (!accessToken || !refreshToken) return null;
 
@@ -975,37 +972,6 @@ app.post('/auth/accounts/:index/enable', requirePanelAuthApi, (req, res) => {
   } catch (e) {
     logger.error('更新账号状态失败', e.message);
     res.status(500).json({ error: e.message || '更新失败' });
-  }
-});
-
-app.post('/auth/accounts/:index/test-record', requirePanelAuthApi, (req, res) => {
-  const index = Number.parseInt(req.params.index, 10);
-  const { success, message, testedAt } = req.body || {};
-
-  if (Number.isNaN(index)) return res.status(400).json({ error: '无效的账号序号' });
-  if (typeof success !== 'boolean') return res.status(400).json({ error: 'success 字段必填且必须为布尔值' });
-
-  const recordTime = testedAt && !Number.isNaN(Date.parse(testedAt)) ? testedAt : new Date().toISOString();
-
-  try {
-    if (!fs.existsSync(ACCOUNTS_FILE)) {
-      return res.status(404).json({ error: '账号列表不存在' });
-    }
-
-    const accounts = JSON.parse(fs.readFileSync(ACCOUNTS_FILE, 'utf-8'));
-    if (!accounts[index]) return res.status(404).json({ error: '账号不存在' });
-
-    accounts[index].last_tested_at = recordTime;
-    accounts[index].last_test_success = success;
-    if (message) {
-      accounts[index].last_test_message = String(message).slice(0, 2000);
-    }
-
-    fs.writeFileSync(ACCOUNTS_FILE, JSON.stringify(accounts, null, 2), 'utf-8');
-    res.json({ success: true, testedAt: recordTime });
-  } catch (e) {
-    logger.error('保存测试记录失败', e.message);
-    res.status(500).json({ error: e.message || '保存测试记录失败' });
   }
 });
 
