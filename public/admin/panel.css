@@ -211,9 +211,15 @@ button:disabled {
 .card-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.action-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .card-body {
@@ -272,6 +278,85 @@ button:disabled {
   margin: 8px 0 4px;
 }
 
+.test-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0 10px;
+}
+
+.test-section {
+  margin: 12px 0 16px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--subtle-bg);
+}
+
+.test-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.test-input-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.test-results-section {
+  margin-top: 8px;
+}
+
+.test-summary {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card-bg);
+}
+
+.summary-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 16px;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px;
+  border-radius: 8px;
+  background: var(--subtle-bg);
+}
+
+.stat-item.success {
+  background: var(--status-ok-bg);
+  color: var(--status-ok-text);
+}
+
+.stat-item.error {
+  background: var(--status-off-bg);
+  color: var(--status-off-text);
+}
+
+.stat-item .stat-label {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.stat-item .stat-value {
+  font-size: 18px;
+  font-weight: 600;
+}
+
 .filter-field {
   display: inline-flex;
   align-items: center;
@@ -326,42 +411,41 @@ button:disabled {
 
 .account-item {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
   gap: 12px;
-  padding: 12px;
+  padding: 16px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--card-bg);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.account-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.account-info {
+  flex: 1;
 }
 
 .account-title {
   font-weight: 600;
+  font-size: 15px;
+  margin-bottom: 4px;
 }
 
 .account-meta {
   color: var(--muted);
   font-size: 12px;
-  margin: 4px 0 8px;
 }
 
-.account-actions {
+.account-status {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
-}
-
-.mini-btn {
-  background: var(--neutral-btn-bg);
-  color: var(--neutral-btn-text);
-  padding: 6px 10px;
-  font-size: 12px;
-  border-radius: 8px;
-}
-
-.mini-btn.danger {
-  background: var(--danger-bg);
-  color: var(--danger-text);
+  align-items: center;
 }
 
 .status-pill {
@@ -369,6 +453,7 @@ button:disabled {
   border-radius: 999px;
   font-size: 12px;
   text-align: center;
+  white-space: nowrap;
 }
 
 .status-ok {
@@ -381,10 +466,54 @@ button:disabled {
   color: var(--status-off-text);
 }
 
+.account-content {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 16px;
+  align-items: start;
+}
+
+.account-data {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.account-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 180px;
+  flex-shrink: 0;
+}
+
+.action-row {
+  display: flex;
+  gap: 6px;
+}
+
+.action-row.primary {
+  gap: 8px;
+}
+
+.action-row.primary .mini-btn {
+  flex: 1;
+}
+
+.action-row.secondary {
+  flex-wrap: wrap;
+}
+
+.action-row.secondary .mini-btn {
+  flex: 1;
+  min-width: 0;
+}
+
 .usage {
   background: var(--subtle-bg);
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: 10px;
   border: 1px dashed var(--border);
 }
 
@@ -393,6 +522,135 @@ button:disabled {
   justify-content: space-between;
   font-size: 12px;
   color: var(--muted);
+  margin-bottom: 2px;
+}
+
+.usage-row:last-child {
+  margin-bottom: 0;
+}
+
+.usage-row strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.account-test-meta {
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--subtle-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.test-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.test-meta-time {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.test-meta-message {
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.4;
+  margin-top: 2px;
+}
+
+.account-test-result {
+  margin-top: 8px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px dashed var(--border);
+  background: var(--subtle-bg);
+  font-size: 13px;
+  color: var(--muted);
+  transition: border-color 0.2s ease, color 0.2s ease, background 0.2s ease;
+}
+
+.account-test-result[data-state='success'] {
+  border-color: var(--status-ok-bg);
+  background: var(--status-ok-bg);
+  color: var(--status-ok-text);
+}
+
+.account-test-result[data-state='warning'] {
+  border-color: var(--chip-warning-border);
+  background: var(--chip-warning-bg);
+  color: var(--chip-warning-text);
+}
+
+.account-test-result[data-state='error'] {
+  border-color: var(--status-off-bg);
+  background: var(--status-off-bg);
+  color: var(--status-off-text);
+}
+
+.mini-btn {
+  background: var(--neutral-btn-bg);
+  color: var(--neutral-btn-text);
+  padding: 6px 10px;
+  font-size: 12px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.mini-btn:hover {
+  background: var(--neutral-btn-hover);
+  transform: translateY(-1px);
+}
+
+.mini-btn:active {
+  transform: translateY(0);
+}
+
+.mini-btn.danger {
+  background: var(--danger-bg);
+  color: var(--danger-text);
+}
+
+.mini-btn.danger:hover {
+  opacity: 0.9;
+}
+
+.mini-btn:disabled {
+  background: var(--disabled-bg);
+  cursor: not-allowed;
+  transform: none;
+}
+
+.chip {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-bg);
+  color: var(--accent-text);
+  border: 1px solid var(--accent-border);
+}
+
+.chip-success {
+  background: var(--status-ok-bg);
+  color: var(--status-ok-text);
+  border-color: var(--status-ok-bg);
+}
+
+.chip-warning {
+  background: var(--chip-warning-bg);
+  color: var(--chip-warning-text);
+  border-color: var(--chip-warning-border);
 }
 
 .logs {
@@ -735,8 +993,65 @@ button:disabled {
     align-items: flex-start;
   }
 
+  .account-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .account-content {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
   .account-actions {
+    width: 100%;
     flex-direction: row;
     flex-wrap: wrap;
+  }
+
+  .action-row {
+    flex: 1;
+    min-width: 280px;
+  }
+
+  .action-row.primary {
+    order: -1;
+  }
+
+  .account-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .action-group {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .test-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .test-input-group {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .summary-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .card-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .action-group {
+    flex-direction: column;
+    gap: 8px;
   }
 }

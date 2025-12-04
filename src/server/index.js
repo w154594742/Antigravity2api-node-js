@@ -257,8 +257,7 @@ const SETTINGS_DEFINITIONS = [
     key: 'SYSTEM_INSTRUCTION',
     label: '系统提示词',
     category: '生成参数',
-    defaultValue:
-      '你是聊天机器人，名字叫萌萌，如同名字这般，你的性格是软软糯糯萌萌哒的，专门为用户提供聊天和情绪价值，协助进行小说创作或者角色扮演',
+    defaultValue: '',
     valueResolver: () => config.systemInstruction
   },
   {
@@ -485,9 +484,13 @@ function readAccountsSafe() {
     return data.map((acc, index) => ({
       index,
       projectId: acc.projectId || null,
+      email: acc.email || acc.user_email || acc.userEmail || null,
       enable: acc.enable !== false,
       hasRefreshToken: !!acc.refresh_token,
       createdAt: acc.timestamp || null,
+      lastTestedAt: acc.last_tested_at || null,
+      lastTestSuccess: acc.last_test_success ?? null,
+      lastTestMessage: acc.last_test_message || null,
       expiresIn: acc.expires_in || null,
       usage: usageMap[acc.projectId] || {
         total: 0,
@@ -517,14 +520,14 @@ function parseTimestamp(raw) {
   return Date.now();
 }
 
-function normalizeTomlAccount(raw) {
+function normalizeTomlAccount(raw, { filterDisabled = false } = {}) {
   if (!raw || typeof raw !== 'object') return null;
 
   const accessToken = raw.access_token ?? raw.accessToken;
   const refreshToken = raw.refresh_token ?? raw.refreshToken;
 
-  // 只导入在 TOML 中显式标记 disabled = true 的账号，其它全部跳过
-  if (raw.disabled !== true) return null;
+  const isDisabled = raw.disabled === true || raw.enable === false;
+  if (filterDisabled && isDisabled === false) return null;
 
   if (!accessToken || !refreshToken) return null;
 
@@ -535,8 +538,7 @@ function normalizeTomlAccount(raw) {
       ? Number(raw.expires_in ?? raw.expiresIn)
       : 3600,
     timestamp: parseTimestamp(raw),
-    // 导入后在本系统中默认启用
-    enable: true
+    enable: !isDisabled
   };
 
   const projectId = raw.projectId ?? raw.project_id;
@@ -801,7 +803,11 @@ app.post('/auth/oauth/parse-url', requirePanelAuthApi, async (req, res) => {
 
 // Import accounts from TOML and merge into accounts.json
 app.post('/auth/accounts/import-toml', requirePanelAuthApi, (req, res) => {
-  const { toml: tomlContent, replaceExisting = false } = req.body || {};
+  const {
+    toml: tomlContent,
+    replaceExisting = false,
+    filterDisabled = true
+  } = req.body || {};
 
   if (!tomlContent || typeof tomlContent !== 'string') {
     return res.status(400).json({ error: 'toml 字段必填且必须为字符串' });
@@ -823,7 +829,7 @@ app.post('/auth/accounts/import-toml', requirePanelAuthApi, (req, res) => {
   let skipped = 0;
 
   for (const raw of accountsFromToml) {
-    const acc = normalizeTomlAccount(raw);
+    const acc = normalizeTomlAccount(raw, { filterDisabled });
     if (acc) {
       normalized.push(acc);
     } else {
@@ -870,6 +876,49 @@ app.post('/auth/accounts/import-toml', requirePanelAuthApi, (req, res) => {
 // Simple JSON list of accounts for front-end
 app.get('/auth/accounts', requirePanelAuthApi, (req, res) => {
   res.json({ accounts: readAccountsSafe() });
+});
+
+// Refresh all accounts
+app.post('/auth/accounts/refresh-all', requirePanelAuthApi, async (req, res) => {
+  try {
+    const accounts = JSON.parse(fs.readFileSync(ACCOUNTS_FILE, 'utf-8'));
+    if (!Array.isArray(accounts) || accounts.length === 0) {
+      return res.json({ success: true, refreshed: 0, failed: 0, total: 0, results: [] });
+    }
+
+    const results = [];
+    let refreshed = 0;
+    let failed = 0;
+
+    for (let i = 0; i < accounts.length; i += 1) {
+      const account = accounts[i];
+      if (!account) continue;
+
+      try {
+        await tokenManager.refreshToken(account);
+        accounts[i] = account;
+        refreshed += 1;
+        results.push({ index: i, status: 'ok' });
+      } catch (e) {
+        const statusCode = e?.statusCode;
+        if (statusCode === 403 || statusCode === 400) {
+          account.enable = false;
+        }
+
+        failed += 1;
+        results.push({ index: i, status: 'failed', error: e?.message || '刷新失败' });
+        logger.warn(`账号 ${i + 1} 刷新失败: ${e?.message || e}`);
+      }
+    }
+
+    fs.writeFileSync(ACCOUNTS_FILE, JSON.stringify(accounts, null, 2), 'utf-8');
+    tokenManager.initialize();
+
+    res.json({ success: true, refreshed, failed, total: accounts.length, results });
+  } catch (e) {
+    logger.error('批量刷新凭证失败', e.message);
+    res.status(500).json({ error: e.message || '批量刷新失败' });
+  }
 });
 
 // Manually refresh a single account by index
@@ -929,11 +978,46 @@ app.post('/auth/accounts/:index/enable', requirePanelAuthApi, (req, res) => {
   }
 });
 
+app.post('/auth/accounts/:index/test-record', requirePanelAuthApi, (req, res) => {
+  const index = Number.parseInt(req.params.index, 10);
+  const { success, message, testedAt } = req.body || {};
+
+  if (Number.isNaN(index)) return res.status(400).json({ error: '无效的账号序号' });
+  if (typeof success !== 'boolean') return res.status(400).json({ error: 'success 字段必填且必须为布尔值' });
+
+  const recordTime = testedAt && !Number.isNaN(Date.parse(testedAt)) ? testedAt : new Date().toISOString();
+
+  try {
+    if (!fs.existsSync(ACCOUNTS_FILE)) {
+      return res.status(404).json({ error: '账号列表不存在' });
+    }
+
+    const accounts = JSON.parse(fs.readFileSync(ACCOUNTS_FILE, 'utf-8'));
+    if (!accounts[index]) return res.status(404).json({ error: '账号不存在' });
+
+    accounts[index].last_tested_at = recordTime;
+    accounts[index].last_test_success = success;
+    if (message) {
+      accounts[index].last_test_message = String(message).slice(0, 2000);
+    }
+
+    fs.writeFileSync(ACCOUNTS_FILE, JSON.stringify(accounts, null, 2), 'utf-8');
+    res.json({ success: true, testedAt: recordTime });
+  } catch (e) {
+    logger.error('保存测试记录失败', e.message);
+    res.status(500).json({ error: e.message || '保存测试记录失败' });
+  }
+});
+
 app.get('/admin/settings', requirePanelAuthApi, (req, res) => {
   res.json({
     updatedAt: new Date().toISOString(),
     groups: buildSettingsSummary()
   });
+});
+
+app.get('/admin/panel-config', requirePanelAuthApi, (req, res) => {
+  res.json({ apiKey: process.env.API_KEY || null });
 });
 
 app.get('/admin/logs/usage', requirePanelAuthApi, (req, res) => {
