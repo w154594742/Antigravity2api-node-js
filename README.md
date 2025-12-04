@@ -24,7 +24,7 @@ networks:
     external: true
 services:
   antigravity-api:
-    image: ghcr.io/zhongruan0522/antigravity2api-nodejs:latest
+    image: ghcr.io/zhongruan0522/Antigravity2api-node-js:latest
     container_name: antigravity-api
     restart: unless-stopped
     networks:
