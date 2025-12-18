@@ -33,7 +33,7 @@ API_KEY=sk-text
 
 # 其他配置
 USE_NATIVE_AXIOS=false
-TIMEOUT=180000
+TIMEOUT=1800000
 # PROXY=http://127.0.0.1:7897
 MAX_IMAGES=10 # 最大保存的图片数量，超过就会删除时间最早的
 # IMAGE_BASE_URL=http://your-domain.com  # 可选：自定义图片访问基础 URL，默认使用宿主机 IP 或本地回环
@@ -131,7 +131,7 @@ function loadConfigFromEnv() {
         parseInt(flat.RETRY_MAX_ATTEMPTS ?? 3, 10) || 3
     },
     useNativeAxios: String(flat.USE_NATIVE_AXIOS).toLowerCase() !== 'false',
-    timeout: parseInt(flat.TIMEOUT ?? 30000, 10) || 30000,
+    timeout: parseInt(flat.TIMEOUT ?? 1800000, 10) || 1800000,
     proxy: flat.PROXY || null,
     systemInstruction: flat.SYSTEM_INSTRUCTION || '',
     resourceManagerApiUrl:

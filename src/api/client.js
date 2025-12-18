@@ -421,7 +421,13 @@ function parseAndEmitStreamChunk(line, state, callback) {
                 } else if (part.inlineData) {
                     // 图片数据
                     const imageUrl = saveBase64Image(part.inlineData.data, part.inlineData.mimeType);
-                    callback({ type: 'image', url: imageUrl });
+                    callback({
+                        type: 'image',
+                        url: imageUrl,
+                        mimeType: part.inlineData.mimeType,
+                        data: part.inlineData.data,
+                        thought: part.thought === true
+                    });
                 }
             }
         }
